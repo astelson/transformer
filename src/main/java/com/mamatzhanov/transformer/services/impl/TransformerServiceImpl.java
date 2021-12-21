@@ -9,10 +9,11 @@ import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.Security;
 import java.time.LocalDate;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -34,40 +35,26 @@ public class TransformerServiceImpl implements TransformerService {
         File file = filePath.toFile();
         if (!file.exists()) { file.createNewFile(); }
 
+        Stream<String> stream = Files.lines(filePath);
+        long countRecords = stream.filter(line -> line.startsWith("{")).count();
+        stream.close();
+
         StringBuilder sb = new StringBuilder();
-        long countRecords = getCountRecords(filePath);
-        String line;
-        boolean flag = true;
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath.toFile()))) {
-            while ((line = br.readLine()) != null) {
-                if (flag) {
-                    sb.append("Records: ").append(countRecords).append(System.lineSeparator());
-                    flag = false;
-                    continue;
-                }
-                sb.append(line).append(System.lineSeparator());
-            }
+
+        if (countRecords == 0) { sb.append("Records: ").append(countRecords + 1).append(System.lineSeparator()).append(node).append(System.lineSeparator()); }
+        else {
+            sb.append("Records: ").append(countRecords + 1).append(System.lineSeparator());
+            stream = Files.lines(filePath);
+            stream.filter(line -> line.startsWith("{")).forEach(e -> {
+                sb.append(e).append(System.lineSeparator());
+            });
             sb.append(node).append(System.lineSeparator());
             log.info("Add record to file [{}] {}", fileName, node);
-            log.info("Records number: {}", countRecords);
-        } catch (IOException e) {
-            log.error(e.getMessage());
+            log.info("Records number: {}", countRecords + 1);
         }
 
         FileWriter fw = new FileWriter(filePath.toFile());
         fw.write(sb.toString());
         fw.close();
     }
-
-    private long getCountRecords(Path path) {
-        long lines = 0L;
-        try (BufferedReader reader = new BufferedReader(new FileReader(path.toFile()))) {
-            while (reader.readLine() != null) lines++;
-        } catch (IOException e) {
-            log.error(e.getMessage());
-            return 0;
-        }
-        return lines;
-    }
-
 }
